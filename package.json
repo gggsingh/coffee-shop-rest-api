@@ -1,0 +1,19 @@
+{
+  "name": "coffee-shop-rest-api",
+  "version": "1.0.0",
+  "description": "Small REST API for a coffee shop POS system",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "jest"
+  },
+  "dependencies": {
+    "express": "^4.17.1",
+    "body-parser": "^1.19.0",
+    "zod": "^3.11.6"
+  },
+  "devDependencies": {
+    "jest": "^27.0.6",
+    "supertest": "^6.1.3"
+  }
+}
