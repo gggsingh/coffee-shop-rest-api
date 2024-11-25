@@ -21,7 +21,7 @@ coffee-shop-rest-api
 1. **Clone the repository**:
 
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/gggsingh/coffee-shop-rest-api
    cd coffee-shop-rest-api
    ```
 
@@ -58,12 +58,26 @@ To build and run the application using Docker:
 ## API Endpoints
 
 - **GET /menu**: Retrieves the list of menu items.
+- **GET /loyalty/:loyaltyNumber**: Retrieves the balance of a loyalty account.
+  ```json
+  {
+    "balance": 100
+  }
+  ```
 - **POST /order**: Places a new order. Requires a JSON body with the following structure:
   ```json
   {
     "items": [1, 2],
     "loyaltyNumber": "1234567890",
     "name": "John Doe"
+  }
+  ```
+  - **POST /loyalty**: Creates a new loyalty account. Requires a JSON body with the following structure:
+  ```json
+  {
+    "name": "Jane Doe",
+    "loyaltyNumber": "9876543210",
+    "balance": 50
   }
   ```
 - **PUT /order/:orderId**: Updates an existing order. Requires a JSON body with the following structure:

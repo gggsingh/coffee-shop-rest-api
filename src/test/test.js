@@ -1,85 +1,183 @@
 const request = require("supertest");
-const app = require("../app");
-const server = require("../server");
+const createServer = require("../server");
 
-afterAll((done) => {
-  server.close(done);
-});
+describe("Coffee Shop API", () => {
+  let testServer;
+  let testApp;
 
-describe("GET /menu", () => {
-  it("should return all menu items", async () => {
-    const res = await request(app).get("/menu");
-    expect(res.status).toBe(200);
-    expect(res.body).toBeInstanceOf(Array);
-    expect(res.body.length).toBe(3);
-  });
-});
-
-describe("POST /order", () => {
-  it("should create a new order", async () => {
-    const order = {
-      items: ["1", "2"],
-      loyaltyNumber: "1234567890",
-      name: "John Doe",
-    };
-    const res = await request(app).post("/order").send(order);
-    expect(res.status).toBe(201);
-    expect(res.body.message).toBe("Order received");
-    expect(res.body.order.items).toEqual(["1", "2"]);
+  afterAll((done) => {
+    testServer.close(done);
   });
 
-  it("should return an error for invalid items", async () => {
-    const order = {
-      items: ["99"],
-      loyaltyNumber: "1234567890",
-      name: "John Doe",
-    };
-    const res = await request(app).post("/order").send(order);
-    expect(res.status).toBe(400);
-    expect(res.body.message).toBe("Invalid menu items");
+  beforeAll(() => {
+    const { app, server } = createServer({
+      menuItems: [
+        {
+          id: "1",
+          name: "Espresso",
+          price: 3.0,
+          imageFileName: "espresso.jpg",
+        },
+        { id: "2", name: "Latte", price: 4.0, imageFileName: "latte.jpg" },
+        {
+          id: "3",
+          name: "Cappuccino",
+          price: 4.5,
+          imageFileName: "cappuccino.jpg",
+        },
+      ],
+    });
+    testServer = server;
+    testApp = app;
   });
 
-  it("should return an error for invalid input", async () => {
-    const order = {
-      items: "invalid",
-      loyaltyNumber: 1234567890,
-      name: 123,
-    };
-    const res = await request(app).post("/order").send(order);
-    expect(res.status).toBe(400);
-    expect(res.body.errors).toBeInstanceOf(Array);
-  });
-});
-
-describe("PUT /loyalty/:loyaltyNumber", () => {
-  it("should update the loyalty account balance", async () => {
-    const loyaltyAccount = { loyaltyNumber: "1234567890", balance: 50 };
-    app.locals.loyaltyAccounts = [loyaltyAccount]; // Set the initial state
-
-    const updatedBalance = { balance: 100 };
-    const res = await request(app)
-      .put(`/loyalty/${loyaltyAccount.loyaltyNumber}`)
-      .send(updatedBalance);
-    expect(res.status).toBe(200);
-    expect(res.body.message).toBe("Loyalty account balance updated");
-    expect(res.body.loyaltyAccount.balance).toBe(100);
+  describe("GET /menu", () => {
+    it("should return all menu items", async () => {
+      const res = await request(testApp).get("/menu");
+      expect(res.status).toBe(200);
+      expect(res.body).toBeInstanceOf(Array);
+      expect(res.body.length).toBe(3);
+    });
   });
 
-  it("should return an error if loyalty account not found", async () => {
-    const updatedBalance = { balance: 100 };
-    const res = await request(app)
-      .put("/loyalty/9999999999")
-      .send(updatedBalance);
-    expect(res.status).toBe(404);
-    expect(res.body.message).toBe("Loyalty account not found");
+  describe("POST /order", () => {
+    it("should create a new order", async () => {
+      const order = {
+        items: ["1", "2"],
+        loyaltyNumber: "1234567890",
+        name: "John Doe",
+      };
+      const res = await request(testApp).post("/order").send(order);
+      expect(res.status).toBe(201);
+      expect(res.body.message).toBe("Order received");
+      expect(res.body.order.items).toEqual(["1", "2"]);
+    });
+
+    it("should return an error for invalid items", async () => {
+      const order = {
+        items: ["99"],
+        loyaltyNumber: "1234567890",
+        name: "John Doe",
+      };
+      const res = await request(testApp).post("/order").send(order);
+      expect(res.status).toBe(400);
+      expect(res.body.message).toBe("Invalid menu items");
+    });
+
+    it("should return an error for invalid input", async () => {
+      const order = {
+        items: "invalid",
+        loyaltyNumber: 1234567890,
+        name: 123,
+      };
+      const res = await request(testApp).post("/order").send(order);
+      expect(res.status).toBe(400);
+      expect(res.body.errors).toBeInstanceOf(Array);
+    });
   });
 
-  it("should return an error for invalid input", async () => {
-    const updatedBalance = { balance: -100 };
-    const res = await request(app)
-      .put("/loyalty/1234567890")
-      .send(updatedBalance);
-    expect(res.status).toBe(400);
-    expect(res.body.errors).toBeInstanceOf(Array);
+  describe("POST /loyalty", () => {
+    it("should create a new loyalty account", async () => {
+      const newAccount = {
+        name: "Jane Doe",
+        loyaltyNumber: "9876543210",
+        balance: 50,
+      };
+
+      const response = await request(testApp)
+        .post("/loyalty")
+        .send(newAccount)
+        .expect(201);
+
+      expect(response.body.message).toBe("Loyalty account created");
+      expect(response.body.loyaltyAccount).toEqual(newAccount);
+    });
+
+    it("should not create a loyalty account with an existing loyalty number", async () => {
+      const existingAccount = {
+        name: "John Doe",
+        loyaltyNumber: "1234567890",
+        balance: 100,
+      };
+      testApp.loyaltyAccounts.push(existingAccount); // Set the initial state
+
+      const response = await request(testApp)
+        .post("/loyalty")
+        .send(existingAccount)
+        .expect(400);
+
+      expect(response.body.message).toBe("Loyalty account already exists");
+    });
+
+    it("should not create a loyalty account with invalid data", async () => {
+      const invalidAccount = {
+        name: "Invalid Account",
+        loyaltyNumber: "invalid",
+        balance: -10,
+      };
+
+      const response = await request(testApp)
+        .post("/loyalty")
+        .send(invalidAccount)
+        .expect(400);
+
+      expect(response.body.errors).toBeDefined();
+    });
+  });
+
+  describe("PUT /loyalty/:loyaltyNumber", () => {
+    it("should update the loyalty account balance", async () => {
+      const loyaltyAccount = { loyaltyNumber: "1234567890", balance: 50 };
+      testApp.loyaltyAccounts = [loyaltyAccount]; // Set the initial state
+
+      const updatedBalance = { balance: 100 };
+      const res = await request(testApp)
+        .put(`/loyalty/${loyaltyAccount.loyaltyNumber}`)
+        .send(updatedBalance);
+      expect(res.status).toBe(200);
+      expect(res.body.message).toBe("Loyalty account balance updated");
+      expect(res.body.loyaltyAccount.balance).toBe(100);
+    });
+
+    it("should return an error if loyalty account not found", async () => {
+      const updatedBalance = { balance: 100 };
+      const res = await request(testApp)
+        .put("/loyalty/9999999999")
+        .send(updatedBalance);
+      expect(res.status).toBe(404);
+      expect(res.body.message).toBe("Loyalty account not found");
+    });
+
+    it("should return an error for invalid input", async () => {
+      const updatedBalance = { balance: -100 };
+      const res = await request(testApp)
+        .put("/loyalty/1234567890")
+        .send(updatedBalance);
+      expect(res.status).toBe(400);
+      expect(res.body.errors).toBeInstanceOf(Array);
+    });
+  });
+
+  describe("GET /loyalty/:loyaltyNumber", () => {
+    it("should return the balance of an existing loyalty account", async () => {
+      const loyaltyAccount = {
+        name: "John Doe",
+        loyaltyNumber: "1234567890",
+        balance: 100,
+      };
+      testApp.loyaltyAccounts.push(loyaltyAccount); // Set the initial state
+
+      const res = await request(testApp)
+        .get(`/loyalty/${loyaltyAccount.loyaltyNumber}`)
+        .expect(200);
+
+      expect(res.body.balance).toBe(loyaltyAccount.balance);
+    });
+
+    it("should return an error if loyalty account not found", async () => {
+      const res = await request(testApp).get("/loyalty/9999999999").expect(404);
+
+      expect(res.body.message).toBe("Loyalty account not found");
+    });
   });
 });

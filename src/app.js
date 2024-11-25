@@ -2,113 +2,65 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const { z } = require("zod");
 
-const app = express();
-const port = 3000;
+const createApp = (initialState = {}) => {
+  const app = express();
+  app.use(bodyParser.json());
 
-app.use(bodyParser.json());
+  // Initialize state
+  app.menuItems = initialState.menuItems || [];
+  app.orders = initialState.orders || [];
+  app.loyaltyAccounts = initialState.loyaltyAccounts || [];
 
-// Mock data
-const menuItems = [
-  { id: "1", name: "Espresso", price: 3.0 },
-  { id: "2", name: "Latte", price: 4.0 },
-  { id: "3", name: "Cappuccino", price: 4.5 },
-];
+  // Zod schemas
+  const orderSchema = z.object({
+    items: z.array(z.string()),
+    loyaltyNumber: z.string(),
+    name: z.string(),
+  });
 
-const orders = [];
-const loyaltyAccounts = [];
+  const editOrderSchema = z.object({
+    items: z.array(z.string()).optional(),
+    loyaltyNumber: z.string().optional(),
+    name: z.string().optional(),
+  });
 
-// Zod schemas
-const orderSchema = z.object({
-  items: z.array(z.string()),
-  loyaltyNumber: z.string(),
-  name: z.string(),
-});
+  const loyaltyAccountSchema = z.object({
+    name: z.string(),
+    loyaltyNumber: z.string(),
+    balance: z.number().nonnegative(),
+  });
 
-const editOrderSchema = z.object({
-  items: z.array(z.string()).optional(),
-  loyaltyNumber: z.string().optional(),
-  name: z.string().optional(),
-});
+  // API endpoints
+  app.get("/menu", (req, res) => {
+    res.json(app.menuItems);
+  });
 
-const loyaltyAccountSchema = z.object({
-  loyaltyNumber: z.string(),
-  balance: z.number().nonnegative(),
-});
+  app.get("/loyalty/:loyaltyNumber", (req, res) => {
+    const { loyaltyNumber } = req.params;
 
-// API endpoints
-app.get("/menu", (req, res) => {
-  res.json(menuItems);
-});
+    const loyaltyAccount = app.loyaltyAccounts.find(
+      (account) => loyaltyNumber === account.loyaltyNumber
+    );
 
-app.post("/order", (req, res) => {
-  const validation = orderSchema.safeParse(req.body);
+    if (!loyaltyAccount) {
+      return res.status(404).json({ message: "Loyalty account not found" });
+    }
 
-  if (!validation.success) {
-    return res.status(400).json({ errors: validation.error.errors });
-  }
+    res.status(200).json({ balance: loyaltyAccount.balance });
+  });
 
-  const { items, loyaltyNumber, name } = req.body;
+  app.post("/order", (req, res) => {
+    const validation = orderSchema.safeParse(req.body);
 
-  // Validate menu items
-  const invalidItems = items.filter(
-    (itemId) => !menuItems.some((menuItem) => menuItem.id === itemId)
-  );
-  if (invalidItems.length > 0) {
-    return res
-      .status(400)
-      .json({ message: "Invalid menu items", invalidItems });
-  }
+    if (!validation.success) {
+      return res.status(400).json({ errors: validation.error.errors });
+    }
 
-  // Calculate total price
-  const totalPrice = items.reduce((total, itemId) => {
-    const item = menuItems.find((menuItem) => menuItem.id === itemId);
-    return total + item.price;
-  }, 0);
+    const { items, loyaltyNumber, name } = req.body;
 
-  // Create order
-  const newOrder = {
-    id: (orders.length + 1).toString(),
-    items,
-    loyaltyNumber,
-    name,
-    totalPrice,
-    status: "received",
-  };
-
-  orders.push(newOrder);
-
-  // Update loyalty account balance
-  let loyaltyAccount = loyaltyAccounts.find(
-    (account) => account.loyaltyNumber === loyaltyNumber
-  );
-  if (!loyaltyAccount) {
-    loyaltyAccount = { loyaltyNumber, balance: 0 };
-    loyaltyAccounts.push(loyaltyAccount);
-  }
-  loyaltyAccount.balance += totalPrice;
-
-  res.status(201).json({ message: "Order received", order: newOrder });
-});
-
-app.put("/order/:id", (req, res) => {
-  const orderId = req.params.id;
-  const validation = editOrderSchema.safeParse(req.body);
-
-  if (!validation.success) {
-    return res.status(400).json({ errors: validation.error.errors });
-  }
-
-  const order = orders.find((o) => o.id === orderId);
-  if (!order) {
-    return res.status(404).json({ message: "Order not found" });
-  }
-
-  const { items, loyaltyNumber, name } = req.body;
-
-  if (items) {
     // Validate menu items
     const invalidItems = items.filter(
-      (itemId) => !menuItems.some((menuItem) => menuItem.id === itemId)
+      (itemId) => !app.menuItems.some((menuItem) => menuItem.id === itemId)
     );
     if (invalidItems.length > 0) {
       return res
@@ -118,45 +70,119 @@ app.put("/order/:id", (req, res) => {
 
     // Calculate total price
     const totalPrice = items.reduce((total, itemId) => {
-      const item = menuItems.find((menuItem) => menuItem.id === itemId);
+      const item = app.menuItems.find((menuItem) => menuItem.id === itemId);
       return total + item.price;
     }, 0);
 
-    order.items = items;
-    order.totalPrice = totalPrice;
-  }
+    const order = {
+      id: app.orders.length + 1,
+      items,
+      totalPrice,
+      loyaltyNumber,
+      name,
+    };
 
-  if (loyaltyNumber) {
-    order.loyaltyNumber = loyaltyNumber;
-  }
+    app.orders.push(order);
+    res.status(201).json({ message: "Order received", order });
+  });
 
-  if (name) {
-    order.name = name;
-  }
+  app.post("/loyalty", (req, res) => {
+    const validation = loyaltyAccountSchema.safeParse(req.body);
 
-  res.status(200).json({ message: "Order updated", order });
-});
+    if (!validation.success) {
+      return res.status(400).json({ errors: validation.error.errors });
+    }
 
-app.put("/loyalty/:loyaltyNumber", (req, res) => {
-  const { loyaltyNumber } = req.params;
-  const { balance } = req.body;
+    const { name, loyaltyNumber, balance } = req.body;
 
-  const loyaltyAccount = app.locals.loyaltyAccounts.find(
-    (account) => account.loyaltyNumber === loyaltyNumber
-  );
+    // Check if loyalty account already exists
+    const existingAccount = app.loyaltyAccounts.find(
+      (account) => loyaltyNumber === account.loyaltyNumber
+    );
+    if (existingAccount) {
+      return res
+        .status(400)
+        .json({ message: "Loyalty account already exists" });
+    }
 
-  if (!loyaltyAccount) {
-    return res.status(404).json({ message: "Loyalty account not found" });
-  }
+    const loyaltyAccount = { name, loyaltyNumber, balance };
+    app.loyaltyAccounts.push(loyaltyAccount);
 
-  if (balance < 0) {
-    return res.status(400).json({ errors: ["Balance cannot be negative"] });
-  }
+    res
+      .status(201)
+      .json({ message: "Loyalty account created", loyaltyAccount });
+  });
 
-  loyaltyAccount.balance = balance;
-  res
-    .status(200)
-    .json({ message: "Loyalty account balance updated", loyaltyAccount });
-});
+  app.put("/order/:orderId", (req, res) => {
+    const { orderId } = req.params;
+    const validation = editOrderSchema.safeParse(req.body);
 
-module.exports = app;
+    if (!validation.success) {
+      return res.status(400).json({ errors: validation.error.errors });
+    }
+
+    const { items, loyaltyNumber, name } = req.body;
+    const order = app.orders.find((order) => order.id === parseInt(orderId));
+
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    if (items) {
+      // Validate menu items
+      const invalidItems = items.filter(
+        (itemId) => !app.menuItems.some((menuItem) => menuItem.id === itemId)
+      );
+      if (invalidItems.length > 0) {
+        return res
+          .status(400)
+          .json({ message: "Invalid menu items", invalidItems });
+      }
+
+      // Calculate total price
+      const totalPrice = items.reduce((total, itemId) => {
+        const item = app.menuItems.find((menuItem) => menuItem.id === itemId);
+        return total + item.price;
+      }, 0);
+
+      order.items = items;
+      order.totalPrice = totalPrice;
+    }
+
+    if (loyaltyNumber) {
+      order.loyaltyNumber = loyaltyNumber;
+    }
+
+    if (name) {
+      order.name = name;
+    }
+
+    res.status(200).json({ message: "Order updated", order });
+  });
+
+  app.put("/loyalty/:loyaltyNumber", (req, res) => {
+    const { loyaltyNumber } = req.params;
+    const { balance } = req.body;
+
+    const loyaltyAccount = app.loyaltyAccounts.find(
+      (account) => loyaltyNumber === account.loyaltyNumber
+    );
+
+    if (!loyaltyAccount) {
+      return res.status(404).json({ message: "Loyalty account not found" });
+    }
+
+    if (balance < 0) {
+      return res.status(400).json({ errors: ["Balance cannot be negative"] });
+    }
+
+    loyaltyAccount.balance = balance;
+    res
+      .status(200)
+      .json({ message: "Loyalty account balance updated", loyaltyAccount });
+  });
+
+  return app;
+};
+
+module.exports = createApp;

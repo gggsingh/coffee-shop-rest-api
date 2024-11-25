@@ -1,9 +1,13 @@
-const app = require("./app");
+const createApp = require("./app");
 
-const port = 3000;
+const startServer = (initialState = {}) => {
+  const port = 3000;
+  const app = createApp(initialState);
+  const server = app.listen(port, () => {
+    console.log(`Server running on port ${port}`);
+  });
 
-const server = app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
-});
+  return { server, app };
+};
 
-module.exports = server;
+module.exports = startServer;
