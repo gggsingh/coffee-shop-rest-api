@@ -64,6 +64,14 @@ To build and run the application using Docker:
     "balance": 100
   }
   ```
+- **GET /order/search**: Searches for orders by name, orderId, or loyaltyNumber. Accepts query parameters:
+  ```json
+  {
+    "name": "John Doe",
+    "orderId": "order-id",
+    "loyaltyNumber": "1234567890"
+  }
+  ```
 - **POST /order**: Places a new order. Requires a JSON body with the following structure:
   ```json
   {
@@ -72,7 +80,7 @@ To build and run the application using Docker:
     "name": "John Doe"
   }
   ```
-  - **POST /loyalty**: Creates a new loyalty account. Requires a JSON body with the following structure:
+- **POST /loyalty**: Creates a new loyalty account. Requires a JSON body with the following structure:
   ```json
   {
     "name": "Jane Doe",
