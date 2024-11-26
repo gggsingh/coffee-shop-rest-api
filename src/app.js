@@ -1,6 +1,7 @@
 const express = require("express");
 const bodyParser = require("body-parser");
 const { z } = require("zod");
+const { v4: uuidv4 } = require("uuid");
 
 const createApp = (initialState = {}) => {
   const app = express();
@@ -13,15 +14,10 @@ const createApp = (initialState = {}) => {
 
   // Zod schemas
   const orderSchema = z.object({
-    items: z.array(z.string()),
-    loyaltyNumber: z.string(),
-    name: z.string(),
-  });
-
-  const editOrderSchema = z.object({
     items: z.array(z.string()).optional(),
     loyaltyNumber: z.string().optional(),
     name: z.string().optional(),
+    status: z.enum(["pending", "completed"]).default("pending").optional(),
   });
 
   const loyaltyAccountSchema = z.object({
@@ -33,6 +29,30 @@ const createApp = (initialState = {}) => {
   // API endpoints
   app.get("/menu", (req, res) => {
     res.json(app.menuItems);
+  });
+
+  app.get("/order/search", (req, res) => {
+    const { name, orderId, loyaltyNumber } = req.query;
+
+    let orders = app.orders;
+
+    if (name) {
+      orders = orders.filter((order) => order.name === name);
+    }
+
+    if (orderId) {
+      orders = orders.filter((order) => order.id === orderId);
+    }
+
+    if (loyaltyNumber) {
+      orders = orders.filter((order) => order.loyaltyNumber === loyaltyNumber);
+    }
+
+    if (orders.length === 0) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    res.status(200).json(orders);
   });
 
   app.get("/loyalty/:loyaltyNumber", (req, res) => {
@@ -56,7 +76,7 @@ const createApp = (initialState = {}) => {
       return res.status(400).json({ errors: validation.error.errors });
     }
 
-    const { items, loyaltyNumber, name } = req.body;
+    const { items, loyaltyNumber, name, status } = req.body;
 
     // Validate menu items
     const invalidItems = items.filter(
@@ -75,54 +95,28 @@ const createApp = (initialState = {}) => {
     }, 0);
 
     const order = {
-      id: app.orders.length + 1,
+      id: uuidv4(), // Generate a UUID for the order ID
       items,
       totalPrice,
       loyaltyNumber,
       name,
+      status: status || "pending", // Set default status to pending
     };
 
     app.orders.push(order);
-    res.status(201).json({ message: "Order received", order });
-  });
-
-  app.post("/loyalty", (req, res) => {
-    const validation = loyaltyAccountSchema.safeParse(req.body);
-
-    if (!validation.success) {
-      return res.status(400).json({ errors: validation.error.errors });
-    }
-
-    const { name, loyaltyNumber, balance } = req.body;
-
-    // Check if loyalty account already exists
-    const existingAccount = app.loyaltyAccounts.find(
-      (account) => loyaltyNumber === account.loyaltyNumber
-    );
-    if (existingAccount) {
-      return res
-        .status(400)
-        .json({ message: "Loyalty account already exists" });
-    }
-
-    const loyaltyAccount = { name, loyaltyNumber, balance };
-    app.loyaltyAccounts.push(loyaltyAccount);
-
-    res
-      .status(201)
-      .json({ message: "Loyalty account created", loyaltyAccount });
+    res.status(200).json({ message: "Order placed", order });
   });
 
   app.put("/order/:orderId", (req, res) => {
     const { orderId } = req.params;
-    const validation = editOrderSchema.safeParse(req.body);
+    const validation = orderSchema.safeParse(req.body);
 
     if (!validation.success) {
       return res.status(400).json({ errors: validation.error.errors });
     }
 
-    const { items, loyaltyNumber, name } = req.body;
-    const order = app.orders.find((order) => order.id === parseInt(orderId));
+    const { items, loyaltyNumber, name, status } = req.body;
+    const order = app.orders.find((order) => order.id === orderId);
 
     if (!order) {
       return res.status(404).json({ message: "Order not found" });
@@ -157,7 +151,38 @@ const createApp = (initialState = {}) => {
       order.name = name;
     }
 
+    if (status) {
+      order.status = status;
+    }
+
     res.status(200).json({ message: "Order updated", order });
+  });
+
+  app.post("/loyalty", (req, res) => {
+    const validation = loyaltyAccountSchema.safeParse(req.body);
+
+    if (!validation.success) {
+      return res.status(400).json({ errors: validation.error.errors });
+    }
+
+    const { name, loyaltyNumber, balance } = req.body;
+
+    // Check if loyalty account already exists
+    const existingAccount = app.loyaltyAccounts.find(
+      (account) => loyaltyNumber === account.loyaltyNumber
+    );
+    if (existingAccount) {
+      return res
+        .status(400)
+        .json({ message: "Loyalty account already exists" });
+    }
+
+    const loyaltyAccount = { name, loyaltyNumber, balance };
+    app.loyaltyAccounts.push(loyaltyAccount);
+
+    res
+      .status(201)
+      .json({ message: "Loyalty account created", loyaltyAccount });
   });
 
   app.put("/loyalty/:loyaltyNumber", (req, res) => {

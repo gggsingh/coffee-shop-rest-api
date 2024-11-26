@@ -1,16 +1,16 @@
 const request = require("supertest");
-const createServer = require("../server");
+const startServer = require("../server");
 
 describe("Coffee Shop API", () => {
-  let testServer;
   let testApp;
+  let testServer;
 
   afterAll((done) => {
     testServer.close(done);
   });
 
   beforeAll(() => {
-    const { app, server } = createServer({
+    const { app, server } = startServer({
       menuItems: [
         {
           id: "1",
@@ -26,6 +26,28 @@ describe("Coffee Shop API", () => {
           imageFileName: "cappuccino.jpg",
         },
       ],
+      orders: [
+        {
+          id: "1",
+          items: ["1"],
+          totalPrice: 3,
+          loyaltyNumber: "123456789",
+          name: "John",
+          status: "pending",
+        },
+        {
+          id: "2",
+          items: ["2"],
+          totalPrice: 2,
+          loyaltyNumber: "987654321",
+          name: "Jane",
+          status: "completed",
+        },
+      ],
+      loyaltyAccounts: [
+        { name: "John", loyaltyNumber: "123456789", balance: 10 },
+        { name: "Jane", loyaltyNumber: "987654321", balance: 20 },
+      ],
     });
     testServer = server;
     testApp = app;
@@ -40,6 +62,67 @@ describe("Coffee Shop API", () => {
     });
   });
 
+  describe("GET /order/search", () => {
+    it("should return orders by name", async () => {
+      const res = await request(testApp)
+        .get("/order/search")
+        .query({ name: "John" });
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual([
+        {
+          id: "1",
+          items: ["1"],
+          totalPrice: 3,
+          loyaltyNumber: "123456789",
+          name: "John",
+          status: "pending",
+        },
+      ]);
+    });
+
+    it("should return orders by orderId", async () => {
+      const res = await request(testApp)
+        .get("/order/search")
+        .query({ orderId: "2" });
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual([
+        {
+          id: "2",
+          items: ["2"],
+          totalPrice: 2,
+          loyaltyNumber: "987654321",
+          name: "Jane",
+          status: "completed",
+        },
+      ]);
+    });
+
+    it("should return orders by loyaltyNumber", async () => {
+      const res = await request(testApp)
+        .get("/order/search")
+        .query({ loyaltyNumber: "123456789" });
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual([
+        {
+          id: "1",
+          items: ["1"],
+          totalPrice: 3,
+          loyaltyNumber: "123456789",
+          name: "John",
+          status: "pending",
+        },
+      ]);
+    });
+
+    it("should return 404 if no orders found", async () => {
+      const res = await request(testApp)
+        .get("/order/search")
+        .query({ name: "Nonexistent" });
+      expect(res.status).toBe(404);
+      expect(res.body).toEqual({ message: "Order not found" });
+    });
+  });
+
   describe("POST /order", () => {
     it("should create a new order", async () => {
       const order = {
@@ -48,8 +131,8 @@ describe("Coffee Shop API", () => {
         name: "John Doe",
       };
       const res = await request(testApp).post("/order").send(order);
-      expect(res.status).toBe(201);
-      expect(res.body.message).toBe("Order received");
+      expect(res.status).toBe(200);
+      expect(res.body.message).toBe("Order placed");
       expect(res.body.order.items).toEqual(["1", "2"]);
     });
 
@@ -122,6 +205,30 @@ describe("Coffee Shop API", () => {
         .expect(400);
 
       expect(response.body.errors).toBeDefined();
+    });
+  });
+
+  describe("Put /order/:orderId", () => {
+    it("should update the status of an existing order to 'completed'", async () => {
+      const order = {
+        items: ["1", "2"],
+        loyaltyNumber: "1234567890",
+        name: "John Doe",
+      };
+      const orderRes = await request(testApp).post("/order").send(order);
+
+      expect(orderRes.status).toBe(200);
+      expect(orderRes.body.message).toBe("Order placed");
+      const orderId = orderRes.body.order.id;
+
+      const statusUpdatedOrder = { ...order, status: "completed" };
+      const statusUpdatedOrderRes = await request(testApp)
+        .put(`/order/${orderId}`)
+        .send(statusUpdatedOrder);
+
+      expect(statusUpdatedOrderRes.status).toBe(200);
+      expect(statusUpdatedOrderRes.body.message).toBe("Order updated");
+      expect(statusUpdatedOrderRes.body.order.status).toBe("completed");
     });
   });
 
