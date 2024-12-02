@@ -9,6 +9,7 @@ const createApp = (initialState = {}) => {
 
   // Initialize state
   app.menuItems = initialState.menuItems || [];
+  app.menuItemDescriptionMap = initialState.menuItemDescriptionMap || {};
   app.orders = initialState.orders || [];
   app.loyaltyAccounts = initialState.loyaltyAccounts || [];
 
@@ -30,6 +31,22 @@ const createApp = (initialState = {}) => {
   app.get("/menu", (req, res) => {
     res.json(app.menuItems);
   });
+
+  app.get("/menu/:id", (req, res) => {
+    const { id } = req.params;
+    const menuItem = app.menuItems.find((item) => item.id === id);
+    if (!menuItem) {
+      return res.status(404).json({ message: "Menu item not found" });
+    }
+
+    const description = app.menuItemDescriptionMap[id];
+    if (!description) {
+      return res.status(404).json({ message: "Menu item not found" });
+    }
+
+    res.json({ ...menuItem, description });
+  });
+
 
   app.get("/order/search", (req, res) => {
     const { name, orderId, loyaltyNumber } = req.query;

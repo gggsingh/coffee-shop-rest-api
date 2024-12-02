@@ -26,6 +26,11 @@ describe("Coffee Shop API", () => {
           imageFileName: "cappuccino.jpg",
         },
       ],
+      menuItemDescriptionMap: {
+        1: "Espresso is not merely a drink; it is a cultural phenomenon woven into the very fabric of daily life.",
+        2: "At its core, the latte is a celebration of craftsmanship. It starts with a shot—or two—of robust espresso, extracted with precision to ensure that every drop is imbued with deep, complex flavors. This concentrated coffee serves as the foundation upon which the magic unfolds. Steamed milk is then introduced, transformed into a silky texture that envelops the espresso in a warm embrace. The final touch—a delicate layer of frothy milk foam—adds an ethereal quality, inviting both visual and tactile delight.",
+        3: "In the grand theater of coffee culture, where aromas swirl and flavors collide, there exists a beverage that stands as a paragon of balance and artistry—the cappuccino. This enchanting concoction, a triumphant blend of robust espresso, creamy steamed milk, and a crown of velvety foam, is not merely a drink; it is an experience that encapsulates the very essence of coffee craftsmanship and cultural heritage.",
+      },
       orders: [
         {
           id: "1",
@@ -59,6 +64,18 @@ describe("Coffee Shop API", () => {
       expect(res.status).toBe(200);
       expect(res.body).toBeInstanceOf(Array);
       expect(res.body.length).toBe(3);
+    });
+
+    it("should return menu item details for the specific item", async () => {
+      const res = await request(testApp).get("/menu/1");
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({
+        id: "1",
+        name: "Espresso",
+        price: 3.0,
+        imageFileName: "espresso.jpg",
+        description: "Espresso is not merely a drink; it is a cultural phenomenon woven into the very fabric of daily life.",
+      });
     });
   });
 
