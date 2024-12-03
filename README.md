@@ -6,11 +6,13 @@ This project is a simple Node.js and Express application that uses Zod for input
 
 ```
 coffee-shop-rest-api
+├── index.js            # Main entry point of the node app
 ├── src
-│   ├── [server.js]     # Main entry point of the application
+│   ├── [server.js]     # Launch main app with defualt mock data
 │   ├── [app.js]        # Main application route logic
 │   └── test
 │       └── test.js     # Unit tests for the application
+│       └── mockData.js # Mock data for the tests and application
 ├── Dockerfile          # Dockerfile for building the application image
 ├── [package.json]      # npm configuration file
 └── [README.md]         # Project documentation
