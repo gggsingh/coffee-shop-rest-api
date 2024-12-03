@@ -5,6 +5,8 @@ const startServer = (initialState = {}) => {
   const app = createApp(initialState);
   const server = app.listen(port, () => {
     console.log(`Server running on port ${port}`);
+    console.log("With initial state:");
+    console.log(initialState);
   });
 
   return { server, app };

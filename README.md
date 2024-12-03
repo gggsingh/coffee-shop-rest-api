@@ -58,6 +58,38 @@ To build and run the application using Docker:
 ## API Endpoints
 
 - **GET /menu**: Retrieves the list of menu items.
+  ```json
+  [
+    {
+      "id": "1",
+      "name": "Espresso",
+      "price": 3.0,
+      "imageFileName": "espresso.jpg"
+    },
+    {
+      "id": "2",
+      "name": "Latte",
+      "price": 4.0,
+      "imageFileName": "latte.jpg"
+    },
+    {
+      "id": "3",
+      "name": "Cappuccino",
+      "price": 4.5,
+      "imageFileName": "cappuccino.jpg"
+    }
+  ]
+  ```
+- **GET /menu/:id**: Retrieves the details of a specific menu item.
+  ```json
+  {
+    "id": "1",
+    "name": "Espresso",
+    "price": 3.0,
+    "imageFileName": "espresso.jpg",
+    "description": "Espresso is not merely a drink; it is a cultural phenomenon woven into the very fabric of daily life."
+  }
+  ```
 - **GET /loyalty/:loyaltyNumber**: Retrieves the balance of a loyalty account.
   ```json
   {

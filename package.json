@@ -2,9 +2,9 @@
   "name": "coffee-shop-rest-api",
   "version": "1.0.0",
   "description": "Small REST API for a coffee shop POS system",
-  "main": "server.js",
+  "main": "index.js",
   "scripts": {
-    "start": "node server.js",
+    "start": "node index.js",
     "test": "jest"
   },
   "dependencies": {
